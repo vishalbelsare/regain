@@ -27,52 +27,35 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-"""Norm functions."""
+"""Test scores module."""
 import numpy as np
-from scipy.optimize import minimize
+from numpy.testing import assert_equal
+from sklearn.utils.extmath import fast_logdet
+
+from regain import scores
+from regain.math import batch_logdet
+from regain.scores import log_likelihood_t
 
 
-def vector_p_norm(a, p=1):
-    """Sum of norms for each vector."""
-    b = np.array([b.flatten() for b in a]).T
-    return np.linalg.norm(b, axis=1, ord=p).sum()
+def test_fast_logdet():
+    """Test fast_logdet"""
+    A = np.diag(np.random.rand(3))
+    logdet1 = batch_logdet(A)
+    assert_equal(logdet1, fast_logdet(A))
+
+    A = np.array([np.diag(np.random.rand(3)), np.diag(np.random.rand(3))])
+    logdet1 = batch_logdet(A)
+    assert_equal(logdet1, [fast_logdet(A[0]), fast_logdet(A[1])])
 
 
-def l1_norm(precision):
-    """L1 norm."""
-    return np.abs(precision).sum()
+def test_log_likelihood():
+    """Test log_likelihood function."""
+    emp_cov = precision = np.identity(3)
+    logl = scores.log_likelihood(emp_cov, precision)
+    assert_equal(logl, -3.0)
 
+    emp_cov = precision = np.array([np.identity(3), np.identity(3)])
+    logl = scores.log_likelihood(emp_cov, precision)
+    assert_equal(logl, np.array([-3.0, -3.0]))
 
-def matrix_l1_norm(matrix):
-    """Sum components over the last 2 dimensions."""
-    return np.sum(np.abs(matrix), (-1, -2))
-
-
-def l1_od_norm(precision):
-    """L1 norm off-diagonal."""
-    diagonal_sum = np.abs(np.diagonal(precision, axis1=-2, axis2=-1)).sum(-1)
-    return matrix_l1_norm(precision) - diagonal_sum
-
-
-def node_penalty(X):
-    """Node penalty. See Hallac for details."""
-    cons = (
-        {
-            "type": "eq",
-            "fun": lambda x: np.array(
-                (x.reshape(X.shape) + x.reshape(X.shape).T - X).sum()
-            ),
-            "jac": lambda x: np.full(X.size, 2),
-        },
-    )
-    try:
-        res = minimize(
-            lambda x: np.sum(np.linalg.norm(x.reshape(X.shape), axis=0)),
-            np.random.randn(X.size),
-            constraints=cons,
-        ).fun
-    except ValueError:
-        res = np.nan
-
-    return res
+    assert_equal(logl.sum(), log_likelihood_t(emp_cov, precision))

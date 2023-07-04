@@ -49,7 +49,14 @@ def update_l1(G, how_many, n_dim_obs):
 
 
 def poisson_theta_generator(
-    n_dim_obs=10, T=10, mode="l1", random_graph="erdos-renyi", probability=0.2, degree=3, n_to_change=3, **kwargs
+    n_dim_obs=10,
+    T=10,
+    mode="l1",
+    random_graph="erdos-renyi",
+    probability=0.5,
+    degree=3,
+    n_to_change=3,
+    **kwargs
 ):
     """Generates adjacency matix for Ising graphical model.
 
@@ -89,7 +96,9 @@ def poisson_theta_generator(
     elif random_graph.lower() == "scale-free":
         graph = nx.random_graphs.barabasi_albert_graph(n=n_dim_obs, m=degree)
     elif random_graph.lower() == "small-world":
-        graph = nx.random_graphs.watts_strogatz_graph(n=n_dim_obs, k=degree, p=probability)
+        graph = nx.random_graphs.watts_strogatz_graph(
+            n=n_dim_obs, k=degree, p=probability
+        )
     else:
         graph = nx.random_graphs.gnm_random_graph(n=n_dim_obs, m=degree)
     graph = nx.adjacency_matrix(graph).todense()
@@ -169,9 +178,12 @@ def poisson_sampler(
         A = _adjacency_to_A(theta, typ="scale-free")
         sigma = _lambda * theta
         ltri_sigma = sigma[np.tril_indices(sigma.shape[0], k=-1)]
-        nonzero_sigma = ltri_sigma[np.where(ltri_sigma != 0)]
-        aux = [_lambda] * theta.shape[0]
-        Y_lambda = np.array(aux + nonzero_sigma.ravel().tolist()[0])
+        nonzero_sigma = np.array(ltri_sigma[np.where(ltri_sigma != 0)])
+
+        # aux = [_lambda] * theta.shape[0]
+        lambda_list = np.full(n_dim_obs, fill_value=_lambda)
+        Y_lambda = np.concatenate([lambda_list, nonzero_sigma.reshape(-1)], axis=0)
+        assert Y_lambda.shape[0] == n_dim_obs + nonzero_sigma.size
 
         Y = np.array([np.random.poisson(l, n_samples) for l in Y_lambda]).T
         X = Y.dot(A.T)
@@ -189,7 +201,7 @@ def poisson_sampler(
         for iter_ in range(max_iter):
             for i in range(n_dim_obs):
                 selector = np.array([j for j in range(n_dim_obs) if j != i])
-                par = np.exp(variances[i] + X[:, selector].dot(theta[selector, j]))
+                par = np.exp(variances[i] + X[:, selector].dot(theta[selector, i]))
                 X[:, i] = np.array([np.random.poisson(p) for p in par])
 
     return X

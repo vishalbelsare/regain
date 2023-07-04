@@ -4,8 +4,8 @@
 # >>> anaconda login
 # >>> anaconda auth -c -n travis --max-age 307584000 --url https://anaconda.org/fdtomasi/$PACKAGENAME --scopes "api:write api:read"
 set -e
-ANACONDA_TOKEN="fd-61d74ee1-e208-4efe-a79d-80fa49b93e41"
 CONDA_BLD_PATH=$HOME/miniconda/conda-bld
+ANACONDA_TOKEN="fd-6b5824f1-a585-45f5-bed0-6130e1b2c5df"
 
 echo "Converting conda package..."
 conda convert --platform all $CONDA_BLD_PATH/linux-64/regain-*.tar.bz2 --output-dir $CONDA_BLD_PATH/

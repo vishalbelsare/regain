@@ -27,52 +27,27 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""Test GroupLassoOverlap."""
 
-"""Norm functions."""
 import numpy as np
-from scipy.optimize import minimize
+from numpy.testing import assert_array_equal
+
+from regain.linear_model import GroupLassoOverlap
 
 
-def vector_p_norm(a, p=1):
-    """Sum of norms for each vector."""
-    b = np.array([b.flatten() for b in a]).T
-    return np.linalg.norm(b, axis=1, ord=p).sum()
+def test_grouplasso_overlap():
+    """Check that GroupLassoOverlap can handle zero data."""
+    x = np.eye(9)
+    y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+
+    mdl = GroupLassoOverlap(groups=[[1, 2]]).fit(x, y)
+    assert_array_equal(mdl.coef_.size, 9)
 
 
-def l1_norm(precision):
-    """L1 norm."""
-    return np.abs(precision).sum()
+def test_grouplasso_paspal():
+    """Test function for the module."""
+    x = np.eye(9)
+    y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
 
-
-def matrix_l1_norm(matrix):
-    """Sum components over the last 2 dimensions."""
-    return np.sum(np.abs(matrix), (-1, -2))
-
-
-def l1_od_norm(precision):
-    """L1 norm off-diagonal."""
-    diagonal_sum = np.abs(np.diagonal(precision, axis1=-2, axis2=-1)).sum(-1)
-    return matrix_l1_norm(precision) - diagonal_sum
-
-
-def node_penalty(X):
-    """Node penalty. See Hallac for details."""
-    cons = (
-        {
-            "type": "eq",
-            "fun": lambda x: np.array(
-                (x.reshape(X.shape) + x.reshape(X.shape).T - X).sum()
-            ),
-            "jac": lambda x: np.full(X.size, 2),
-        },
-    )
-    try:
-        res = minimize(
-            lambda x: np.sum(np.linalg.norm(x.reshape(X.shape), axis=0)),
-            np.random.randn(X.size),
-            constraints=cons,
-        ).fun
-    except ValueError:
-        res = np.nan
-
-    return res
+    mdl = GroupLassoOverlap(mode="paspal", groups=[[1, 2]]).fit(x, y)
+    assert_array_equal(mdl.coef_.size, 9)

@@ -27,47 +27,78 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-"""Test LatentTimeGraphicalLasso."""
+"""Test GLM."""
 import warnings
 
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from regain.covariance.time_graphical_lasso_ import TimeGraphicalLasso
-from regain.forward_backward.time_graphical_lasso_ import (
-    TimeGraphicalLassoForwardBackward,
-)
+from regain.generalized_linear_model.glm_gaussian import Gaussian_GLM_GM
+from regain.generalized_linear_model.glm_ising import IsingGraphicalModel
+from regain.generalized_linear_model.glm_poisson import PoissonGraphicalModel
+from regain.generalized_linear_model.glm_time_ising import TemporalIsingModel
+from regain.generalized_linear_model.glm_time_poisson import TemporalPoissonModel
+from regain.math import fill_diagonal
 
 
-def test_tgl_zero():
-    """Check that TimeGraphicalLasso can handle zero data."""
+def test_glmg_zero():
+    """Check that Gaussian_GLM_GM can handle zero data."""
     x = np.zeros((9, 3))
-    y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        mdl = TimeGraphicalLasso(max_iter=1, assume_centered=True).fit(x, y)
+        mdl = Gaussian_GLM_GM(max_iter=1).fit(x)
 
-    for p in mdl.precision_:
-        # remove the diagonal
-        p.flat[::4] = 0
-
-    assert_array_equal(mdl.precision_, np.zeros((3, 3, 3)))
-    assert_array_equal(mdl.get_observed_precision(), mdl.precision_)
+    fill_diagonal(mdl.precision_, 0)
+    assert_array_equal(mdl.precision_, np.zeros((3, 3)))
 
 
-def test_tglfb_zero():
-    """Check that TimeGraphicalLasso can handle zero data."""
+def test_glmi_zero():
+    """Check that IsingGraphicalModel can handle zero data."""
     x = np.zeros((9, 3))
-    y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        mdl = TimeGraphicalLassoForwardBackward(max_iter=1, assume_centered=True).fit(
-            x, y
-        )
+        mdl = IsingGraphicalModel(max_iter=1).fit(x)
 
-    for p in mdl.precision_:
-        # remove the diagonal
-        p.flat[::4] = 0
+    fill_diagonal(mdl.precision_, 0)
+    assert_array_equal(mdl.precision_, np.zeros((3, 3)))
 
+
+def test_glmp_zero():
+    """Check that PoissonGraphicalModel can handle zero data."""
+    x = np.zeros((9, 3))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        mdl = PoissonGraphicalModel(max_iter=1).fit(x)
+
+    fill_diagonal(mdl.precision_, 0)
+    assert_array_equal(mdl.precision_, np.zeros((3, 3)))
+
+
+def test_glmtp_zero():
+    """Check that TemporalPoissonModel can handle zero data."""
+    x = np.zeros((9, 3))
+    y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        mdl = TemporalPoissonModel(max_iter=1).fit(x, y)
+
+    fill_diagonal(mdl.precision_, 0)
     assert_array_equal(mdl.precision_, np.zeros((3, 3, 3)))
-    assert_array_equal(mdl.get_observed_precision(), mdl.precision_)
+
+
+def test_glmti_zero():
+    """Check that TemporalIsingModel can handle zero data."""
+    x = np.zeros((9, 3))
+    x[0][0] = 1
+    y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        mdl = TemporalIsingModel(max_iter=1).fit(x, y)
+
+    fill_diagonal(mdl.precision_, 0)
+    assert_array_equal(mdl.precision_, np.zeros((3, 3, 3)))

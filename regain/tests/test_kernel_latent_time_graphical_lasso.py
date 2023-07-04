@@ -27,52 +27,30 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""Test KernelLatentTimeGraphicalLasso."""
+import warnings
 
-"""Norm functions."""
 import numpy as np
-from scipy.optimize import minimize
+from numpy.testing import assert_array_equal
+
+from regain.covariance.kernel_latent_time_graphical_lasso_ import (
+    KernelLatentTimeGraphicalLasso,
+)
 
 
-def vector_p_norm(a, p=1):
-    """Sum of norms for each vector."""
-    b = np.array([b.flatten() for b in a]).T
-    return np.linalg.norm(b, axis=1, ord=p).sum()
+def test_kltgl_zero():
+    """Check that KernelLatentTimeGraphicalLasso can handle zero data."""
+    x = np.zeros((9, 3))
+    y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
 
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        mdl = KernelLatentTimeGraphicalLasso(max_iter=1, assume_centered=True).fit(x, y)
 
-def l1_norm(precision):
-    """L1 norm."""
-    return np.abs(precision).sum()
+    for p in mdl.precision_:
+        # remove the diagonal
+        p.flat[::4] = 0
 
-
-def matrix_l1_norm(matrix):
-    """Sum components over the last 2 dimensions."""
-    return np.sum(np.abs(matrix), (-1, -2))
-
-
-def l1_od_norm(precision):
-    """L1 norm off-diagonal."""
-    diagonal_sum = np.abs(np.diagonal(precision, axis1=-2, axis2=-1)).sum(-1)
-    return matrix_l1_norm(precision) - diagonal_sum
-
-
-def node_penalty(X):
-    """Node penalty. See Hallac for details."""
-    cons = (
-        {
-            "type": "eq",
-            "fun": lambda x: np.array(
-                (x.reshape(X.shape) + x.reshape(X.shape).T - X).sum()
-            ),
-            "jac": lambda x: np.full(X.size, 2),
-        },
-    )
-    try:
-        res = minimize(
-            lambda x: np.sum(np.linalg.norm(x.reshape(X.shape), axis=0)),
-            np.random.randn(X.size),
-            constraints=cons,
-        ).fun
-    except ValueError:
-        res = np.nan
-
-    return res
+    assert_array_equal(mdl.precision_, np.zeros((3, 3, 3)))
+    assert_array_equal(mdl.latent_, np.zeros((3, 3, 3)))
+    assert_array_equal(mdl.get_observed_precision(), mdl.precision_ - mdl.latent_)

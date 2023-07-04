@@ -28,14 +28,11 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """Time graph lasso via forward_backward (for now only in case of l1 norm)."""
-from __future__ import division, print_function
-
 import warnings
 from functools import partial
 
 import numpy as np
 from scipy import linalg
-from six.moves import map, range, zip
 from sklearn.covariance._graph_lasso import alpha_max  # noqa
 from sklearn.utils.extmath import squared_norm
 
@@ -45,9 +42,9 @@ from regain.covariance.time_graphical_lasso_ import (
     loss as loss_tgl,
 )
 from regain.norm import l1_od_norm, vector_p_norm
-from regain.prox import prox_FL, soft_thresholding_od
-from regain.utils import convergence
+from regain.prox import prox_FL, soft_thresholding_off_diagonal
 from .forward_backward import _scalar_product, choose_gamma, choose_lamda, upper_diag_3d
+from ..utils import Convergence
 
 
 def loss(S, K, n_samples=None, vareps=0):
@@ -73,9 +70,9 @@ def grad_loss(x, emp_cov, n_samples, x_inv=None, vareps=0):
 def penalty(precision, alpha, beta, psi):
     """Penalty for time-varying graphical lasso."""
     if isinstance(alpha, np.ndarray):
-        obj = sum(a[0][0] * m for a, m in zip(alpha, map(l1_od_norm, precision)))
+        obj = sum(a[0][0] * m for a, m in zip(alpha, l1_od_norm(precision)))
     else:
-        obj = alpha * sum(map(l1_od_norm, precision))
+        obj = alpha * np.sum(l1_od_norm(precision))
     if isinstance(beta, np.ndarray):
         obj += sum(
             b[0][0] * m for b, m in zip(beta, map(psi, precision[1:] - precision[:-1]))
@@ -272,7 +269,7 @@ def tgl_forward_backward(
 
     max_residual = -np.inf
     n_linesearch = 0
-    checks = [convergence(obj=obj_partial(precision=K))]
+    checks = [Convergence(obj=obj_partial(precision=K))]
     for iteration_ in range(max_iter):
         k_previous = K.copy()
         x_inv = np.array([linalg.pinvh(x) for x in K])
@@ -299,7 +296,7 @@ def tgl_forward_backward(
         x_hat = K - gamma * grad
         if choose not in ["gamma", "both"]:
             if laplacian_penalty:
-                y = soft_thresholding_od(x_hat, alpha * gamma)
+                y = soft_thresholding_off_diagonal(x_hat, alpha * gamma)
             else:
                 y = prox_FL(
                     x_hat, beta * gamma, alpha * gamma, p=time_norm, symmetric=True
@@ -328,7 +325,7 @@ def tgl_forward_backward(
         K = K + min(max(lamda, 0), 1) * (y - K)
         # K, t = fista_step(Y, Y - Y_old, t)
 
-        check = convergence(
+        check = Convergence(
             obj=obj_partial(precision=K),
             rnorm=np.linalg.norm(upper_diag_3d(K) - upper_diag_3d(k_previous)),
             snorm=np.linalg.norm(
@@ -344,10 +341,7 @@ def tgl_forward_backward(
         )
 
         if verbose and iteration_ % (50 if verbose < 2 else 1) == 0:
-            print(
-                "obj: %.4f, rnorm: %.7f, snorm: %.4f,"
-                "eps_pri: %.4f, eps_dual: %.4f" % check[:5]
-            )
+            print(check)
 
         if return_history:
             checks.append(check)
